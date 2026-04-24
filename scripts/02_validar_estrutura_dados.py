@@ -29,7 +29,7 @@ COLUNAS_ESPERADAS = {
 
 def validar_arquivo(nome: str, colunas_esperadas: set[str]) -> None:
     caminho = RAW_DIR / nome
-    df = pd.read_csv(caminho)
+    df = pd.read_csv(caminho, parse_dates=["data_hora"])
     colunas_encontradas = set(df.columns)
     faltantes = sorted(colunas_esperadas - colunas_encontradas)
     extras = sorted(colunas_encontradas - colunas_esperadas)
@@ -37,7 +37,16 @@ def validar_arquivo(nome: str, colunas_esperadas: set[str]) -> None:
     if faltantes:
         raise ValueError(f"{nome}: colunas faltantes: {faltantes}")
 
-    print(f"{nome}: estrutura valida; colunas extras: {extras or 'nenhuma'}")
+    if df["data_hora"].duplicated().any():
+        raise ValueError(f"{nome}: existem datas duplicadas")
+
+    inicio = df["data_hora"].min()
+    fim = df["data_hora"].max()
+    valores_ausentes = int(df.isna().sum().sum())
+    print(
+        f"{nome}: estrutura valida; periodo {inicio} a {fim}; "
+        f"valores ausentes: {valores_ausentes}; colunas extras: {extras or 'nenhuma'}"
+    )
 
 
 def main() -> None:
@@ -47,4 +56,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

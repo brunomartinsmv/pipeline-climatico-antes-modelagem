@@ -16,7 +16,8 @@ Antes de juntar fontes, confirme nomes de colunas, tipos de dados, unidades e fr
 
 Valores ausentes devem ser identificados e documentados. Preenchimentos automaticos sem registro dificultam a rastreabilidade.
 
+Neste exemplo, as lacunas do INMET ficticio sao preenchidas apenas para demonstrar o fluxo. Em um projeto real, a regra de preenchimento dependeria da variavel, da duracao da falha, da resolucao temporal e do objetivo da analise.
+
 ## Separe pipeline de modelagem
 
 Um modelo pode ser trocado sem alterar a preparacao dos dados. Um pipeline bem documentado torna essa troca mais simples e reduz ambiguidades.
-
