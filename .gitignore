@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Ambientes
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Sistema e temporarios
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+*.log
+
+# Dados reais e arquivos grandes
+data/**
+!data/
+!data/raw/
+!data/interim/
+!data/processed/
+!data/raw/exemplo_inmet_ficticio.csv
+!data/raw/exemplo_era5_ficticio.csv
+!data/**/.gitkeep
+*.nc
+*.grib
+*.grb
+*.grb2
+*.hdf
+*.h5
+*.parquet
+*.feather
+*.xlsx
+*.xls
+*.zip
+*.tar
+*.gz
+
+# Saidas locais
+figures/*
+!figures/.gitkeep
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
