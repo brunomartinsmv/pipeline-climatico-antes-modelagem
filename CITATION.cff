@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "Se usar este material, cite-o com os metadados abaixo."
+title: "Pipeline climático antes da modelagem"
+type: software
+authors:
+  - family-names: Martins Mendes Vieira
+    given-names: Bruno
+    affiliation: Universidade Federal do Mato Grosso
+repository-code: "https://github.com/brunomartinsmv/pipeline-climatico-antes-modelagem"
+url: "https://github.com/brunomartinsmv/pipeline-climatico-antes-modelagem"
+version: "0.2.0"
+date-released: "2026-11-18"
+license:
+  - MIT
+  - CC-BY-4.0
+abstract: >
+  Exemplo didático, em português, de preparação rastreável de dados climáticos
+  antes da modelagem: inventário, validação, padronização de unidades,
+  tratamento de lacunas e alinhamento de resoluções temporais, com dados
+  fictícios no formato do INMET e do ERA5.
+keywords:
+  - climate data
+  - data pipeline
+  - INMET
+  - ERA5
+  - reproducible research
+  - teaching materials

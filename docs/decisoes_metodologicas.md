@@ -1,29 +1,39 @@
-# Decisoes metodologicas
+# Decisões metodológicas
 
-Este arquivo registra decisoes estaveis do exemplo didatico.
+Este arquivo registra as decisões estáveis do exemplo didático.
 
 ## Dados brutos
 
-Os arquivos em `data/raw/` devem ser tratados como entrada imutavel. Qualquer correcao, filtro ou conversao deve gerar uma nova saida em `data/interim/` ou `data/processed/`.
+Os arquivos em `data/raw/` são entrada imutável. Qualquer correção, filtro ou conversão gera uma nova saída em `data/processed/`. Os brutos fictícios só mudam por meio do gerador documentado em [`data/README.md`](../data/README.md).
 
 ## Datas
 
-As colunas de tempo devem ser convertidas para `datetime` no inicio do fluxo. O formato textual usado nos CSVs ficticios e `YYYY-MM-DD HH:MM`.
+As colunas de tempo são convertidas para `datetime` no início do fluxo. O formato textual dos CSVs é `YYYY-MM-DD HH:MM`. A referência é a grade horária completa de 2024, com 8 784 horas.
 
 ## Unidades
 
-Variaveis de temperatura devem ser comparadas em graus Celsius. Variaveis de precipitacao devem ser comparadas em milimetros.
+Temperatura é comparada em graus Celsius e precipitação em milímetros.
 
-## Resolucao temporal
+## Resolução temporal
 
-Fontes com resolucoes diferentes nao devem ser combinadas sem explicitar a regra de agregacao ou alinhamento. Neste exemplo, o INMET ficticio e horario, enquanto o ERA5 ficticio esta em intervalos de 3 horas. Para fins didaticos, o ERA5 e interpolado para a grade horaria antes da combinacao.
+O INMET fictício é horário; o ERA5 fictício tem passo de 3 horas. Para combinar as fontes na grade horária:
 
-## Lacunas no INMET ficticio
+- a temperatura do ERA5, grandeza instantânea, é interpolada no tempo;
+- a precipitação do ERA5, acumulada, é repartida igualmente entre as 3 horas que o valor cobre. O total anual é preservado.
 
-O arquivo INMET ficticio simula um problema comum em dados observacionais: horarios ausentes e valores vazios em algumas variaveis. O script de preparacao insere a grade horaria completa de 2024, marca registros inseridos em `registro_inmet_inserido` e preenche lacunas curtas por interpolacao temporal limitada a 6 horas.
+Neste arquivo fictício, o acumulado cobre as 3 horas que começam no horário indicado. No ERA5 real, acumulados se referem ao período que termina no horário indicado; a regra de repartição mudaria de lado.
 
-As colunas `temperatura_inmet_c_imputado`, `umidade_relativa_pct_imputado` e `precipitacao_mm_imputado` indicam quais valores foram preenchidos. Essa marcacao evita que a base processada esconda a existencia de falhas na entrada.
+## Lacunas no INMET fictício
+
+O INMET fictício simula falhas comuns em dados observacionais: horas inteiras sem registro e valores vazios. O preparo:
+
+1. insere as horas ausentes e as marca em `registro_inmet_inserido`;
+2. interpola temperatura e umidade apenas em lacunas internas de até 6 horas seguidas, marcando os valores em `*_imputado`;
+3. mantém lacunas mais longas inteiras como ausentes, em vez de preencher só o começo delas;
+4. não preenche precipitação. Horas sem registro de chuva ficam ausentes e marcadas em `precipitacao_inmet_mm_ausente`.
+
+As marcações evitam que a base processada esconda as falhas da entrada.
 
 ## Modelagem
 
-Este repositorio nao executa modelagem. A preparacao da base e o produto final do exemplo.
+Este repositório não executa modelagem. A base processada é o produto final do exemplo.

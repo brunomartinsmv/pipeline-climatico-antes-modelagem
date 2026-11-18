@@ -1,22 +1,25 @@
-# Visao geral do pipeline climatico
+# Visão geral do pipeline climático
 
-Este documento descreve um fluxo didatico para preparar dados climaticos antes de qualquer etapa de modelagem.
+Este documento descreve o fluxo didático para preparar dados climáticos antes de qualquer etapa de modelagem.
 
 ## Objetivo
 
-Organizar um ano de dados meteorologicos ficticios em um processo rastreavel, no qual cada transformacao seja explicita e possa ser repetida.
+Organizar um ano de dados meteorológicos fictícios em um processo rastreável, no qual cada transformação é explícita e pode ser repetida.
 
-## Etapas principais
+## Etapas
 
-1. Preservar os dados brutos em `data/raw/`.
-2. Inventariar variaveis, unidades, fontes e resolucao temporal.
-3. Validar nomes de colunas e tipos esperados.
-4. Padronizar datas e unidades.
-5. Inserir horarios ausentes no exemplo INMET e marcar valores imputados.
-6. Produzir bases intermediarias em `data/interim/`, quando necessario.
-7. Gerar uma base processada em `data/processed/`.
-8. Registrar decisoes metodologicas em `docs/`.
+| Etapa | Comando | Módulo |
+|---|---|---|
+| 1. Inventariar variáveis, tipos e ausências | `python -m pipeline_climatico inventariar` | `inspecao.py` |
+| 2. Validar colunas e datas | `python -m pipeline_climatico validar` | `inspecao.py` |
+| 3. Padronizar datas e unidades | `python -m pipeline_climatico preparar` | `preparo.py` |
+| 4. Inserir horas ausentes e marcar imputações | `python -m pipeline_climatico preparar` | `preparo.py` |
+| 5. Alinhar as resoluções de 1 h e 3 h | `python -m pipeline_climatico preparar` | `preparo.py` |
+| 6. Gerar a base em `data/processed/` | `python -m pipeline_climatico preparar` | `preparo.py` |
+| 7. Gerar painéis mensais em `figures/` | `python -m pipeline_climatico graficos` | `graficos.py` |
 
-## Principio central
+`python -m pipeline_climatico tudo` executa as etapas em ordem. As decisões de cada etapa ficam em [`decisoes_metodologicas.md`](decisoes_metodologicas.md).
 
-O pipeline deve deixar claro como a base final foi construida. A modelagem so deve entrar depois que origem, unidade, frequencia, lacunas e regras de transformacao estiverem documentadas.
+## Princípio central
+
+O pipeline deve deixar claro como a base final foi construída. A modelagem só entra depois que origem, unidade, frequência, lacunas e regras de transformação estiverem documentadas.

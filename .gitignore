@@ -15,7 +15,7 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Sistema e temporarios
+# Sistema e temporários
 .DS_Store
 Thumbs.db
 *.tmp
@@ -26,10 +26,10 @@ Thumbs.db
 data/**
 !data/
 !data/raw/
-!data/interim/
 !data/processed/
 !data/raw/exemplo_inmet_ficticio.csv
 !data/raw/exemplo_era5_ficticio.csv
+!data/README.md
 !data/**/.gitkeep
 *.nc
 *.grib
@@ -45,11 +45,8 @@ data/**
 *.tar
 *.gz
 
-# Saidas locais
-figures/*
-!figures/.gitkeep
-data/interim/*
-!data/interim/.gitkeep
+# Saídas locais (as figuras de figures/*.png são versionadas para o README)
+figures/.matplotlib-cache/
 data/processed/*
 !data/processed/.gitkeep
 
