@@ -65,11 +65,30 @@ def test_umidade_relativa_por_magnus():
     assert rh.iloc[1] == pytest.approx(52.5, abs=0.5)
 
 
+def _total_esperado_no_ano(tp_m: pd.Series) -> float:
+    tp_mm = tp_m * 1000
+    # O acumulado das 00h de 01/01/2024 cobre 22h e 23h de 2023: só um terço entra no ano.
+    # O das 00h de 01/01/2025 cobre 22h e 23h de 2024 e 00h de 2025: entram dois terços.
+    return tp_mm.iloc[0] / 3 + tp_mm.iloc[1:-1].sum() + tp_mm.iloc[-1] * 2 / 3
+
+
 def test_precipitacao_conserva_o_total(base, bruto):
-    tp_mm = bruto["tp"] * 1000
-    # O acumulado das 00h de 01/01 cobre 22h e 23h de 2023: só um terço entra no ano.
-    esperado = tp_mm.iloc[1:].sum() + tp_mm.iloc[0] / 3
-    assert base["precipitacao_mm"].sum() == pytest.approx(esperado)
+    assert base["precipitacao_mm"].sum() == pytest.approx(_total_esperado_no_ano(bruto["tp"]))
+
+
+def test_precipitacao_conserva_o_total_com_chuva_nas_bordas(tmp_path, bruto):
+    # No CSV versionado o primeiro e o último acumulados são zero e esconderiam erros de borda.
+    editado = bruto.copy()
+    editado.iloc[0, editado.columns.get_loc("tp")] = 0.0045
+    editado.iloc[-1, editado.columns.get_loc("tp")] = 0.003
+    copia = tmp_path / ARQUIVO_ERA5.name
+    editado.reset_index().to_csv(copia, index=False, date_format="%Y-%m-%d %H:%M")
+
+    base = preparo.preparar_base(copia)
+    ultimo_dia = base.set_index("data_hora").loc["2024-12-31 22:00":, "precipitacao_mm"]
+    assert ultimo_dia.tolist() == pytest.approx([1.0, 1.0])
+    assert base["precipitacao_mm"].iloc[0] == pytest.approx(1.5)
+    assert base["precipitacao_mm"].sum() == pytest.approx(_total_esperado_no_ano(editado["tp"]))
 
 
 def test_precipitacao_ausente_nao_vaza_para_vizinhos(base, bruto):
