@@ -4,17 +4,17 @@ Este documento descreve o fluxo didático para preparar dados climáticos antes 
 
 ## Objetivo
 
-Organizar um ano de dados meteorológicos fictícios em um processo rastreável, no qual cada transformação é explícita e pode ser repetida.
+Transformar um ano de dados fictícios no formato do ERA5, com passo de 3 horas, em uma base horária rastreável, na qual cada transformação é explícita e pode ser repetida.
 
 ## Etapas
 
 | Etapa | Comando | Módulo |
 |---|---|---|
-| 1. Inventariar variáveis, tipos e ausências | `python -m pipeline_climatico inventariar` | `inspecao.py` |
-| 2. Validar colunas e datas | `python -m pipeline_climatico validar` | `inspecao.py` |
-| 3. Padronizar datas e unidades | `python -m pipeline_climatico preparar` | `preparo.py` |
-| 4. Inserir horas ausentes e marcar imputações | `python -m pipeline_climatico preparar` | `preparo.py` |
-| 5. Alinhar as resoluções de 1 h e 3 h | `python -m pipeline_climatico preparar` | `preparo.py` |
+| 1. Inventariar variáveis, unidades e ausências | `python -m pipeline_climatico inventariar` | `inspecao.py` |
+| 2. Validar colunas, datas e passos | `python -m pipeline_climatico validar` | `inspecao.py` |
+| 3. Inserir passos ausentes e tratar lacunas | `python -m pipeline_climatico preparar` | `preparo.py` |
+| 4. Converter unidades e derivar a umidade | `python -m pipeline_climatico preparar` | `preparo.py` |
+| 5. Passar de 3 h para 1 h | `python -m pipeline_climatico preparar` | `preparo.py` |
 | 6. Gerar a base em `data/processed/` | `python -m pipeline_climatico preparar` | `preparo.py` |
 | 7. Gerar painéis mensais em `figures/` | `python -m pipeline_climatico graficos` | `graficos.py` |
 

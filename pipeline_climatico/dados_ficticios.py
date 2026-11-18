@@ -1,30 +1,30 @@
-"""Gera os CSVs fictícios de `data/raw/` de forma determinística.
+"""Gera o CSV fictício de `data/raw/` de forma determinística.
 
-Os arquivos imitam o formato de uma estação automática do INMET (horária) e de
-uma série do ERA5 em um ponto de grade (3 horas). Os valores são inventados:
-não representam nenhuma estação, localidade ou reanálise real.
+O arquivo imita uma série do ERA5 extraída para um ponto de grade, com passo de
+3 horas e os nomes curtos de variável usados pelo Copernicus (`t2m`, `d2m`,
+`tp`). Os valores são inventados: não representam nenhuma localidade real.
 """
 
 import numpy as np
 import pandas as pd
 
-from pipeline_climatico import ARQUIVO_ERA5, ARQUIVO_INMET, indice_horario_anual
+from pipeline_climatico import ARQUIVO_ERA5, PASSO_ERA5_HORAS, indice_era5
 
 SEMENTE = 20240101
 
-# Lacunas propositais: (variável, duração em horas). A lacuna de 10 h na
-# temperatura é longa demais para interpolação e deve continuar ausente.
-LACUNAS_INMET = [
-    ("temperatura_c", 3),
-    ("temperatura_c", 5),
-    ("temperatura_c", 6),
-    ("temperatura_c", 10),
-    ("umidade_relativa_pct", 4),
-    ("umidade_relativa_pct", 6),
-    ("precipitacao_mm", 2),
-    ("precipitacao_mm", 5),
+# Falhas propositais, em passos de 3 h. Simulam arquivos que não baixaram ou
+# vieram corrompidos. A falha de 4 passos (12 h) em t2m é longa demais para
+# interpolação e deve continuar ausente.
+LACUNAS = [
+    ("t2m", 1),
+    ("t2m", 2),
+    ("t2m", 4),
+    ("d2m", 1),
+    ("d2m", 2),
+    ("tp", 1),
+    ("tp", 2),
 ]
-HORARIOS_SEM_REGISTRO = 11
+PASSOS_SEM_REGISTRO = [1, 1, 1, 2]  # blocos de passos inteiros que faltam no arquivo
 
 
 def _ciclo_anual(dia_do_ano: np.ndarray) -> np.ndarray:
@@ -41,9 +41,16 @@ def _ruido_ar1(rng: np.random.Generator, n: int, phi: float, desvio: float) -> n
     return serie
 
 
+def ponto_de_orvalho(temperatura_c, umidade_pct):
+    """Inverte a fórmula de Magnus (Alduchov e Eskridge, 1996)."""
+    gama = np.log(umidade_pct / 100) + 17.625 * temperatura_c / (243.04 + temperatura_c)
+    return 243.04 * gama / (17.625 - gama)
+
+
 def gerar_referencia(rng: np.random.Generator) -> pd.DataFrame:
-    """Série horária 'verdadeira' da qual as duas fontes fictícias derivam."""
-    indice = indice_horario_anual()
+    """Série horária contínua da qual o arquivo de 3 h é amostrado."""
+    passos = indice_era5()
+    indice = pd.date_range(passos[0] - pd.Timedelta(hours=PASSO_ERA5_HORAS - 1), passos[-1], freq="h")
     dia = indice.day_of_year.to_numpy()
     hora = indice.hour.to_numpy()
     n = len(indice)
@@ -54,65 +61,49 @@ def gerar_referencia(rng: np.random.Generator) -> pd.DataFrame:
     umidade = 68 + 12 * anual - 3.0 * (temperatura - media_diaria) + _ruido_ar1(rng, n, 0.9, 4.0)
 
     # Chuva concentrada no verão e à tarde, como em regimes de monção sul-americana.
-    prob = (0.02 + 0.10 * np.clip(anual, 0, None)) * (1 + 0.8 * np.cos(2 * np.pi * (hora - 16) / 24))
-    chove = rng.random(n) < prob
-    chuva = np.where(chove, rng.gamma(0.8, 2.2, n), 0.0)
+    prob = (0.03 + 0.12 * np.clip(anual, 0, None)) * (1 + 0.8 * np.cos(2 * np.pi * (hora - 16) / 24))
+    chuva = np.where(rng.random(n) < prob, rng.gamma(0.8, 2.0, n), 0.0)
 
     return pd.DataFrame(
-        {"temperatura_c": temperatura, "umidade_relativa_pct": np.clip(umidade, 20, 100), "precipitacao_mm": chuva},
+        {
+            "temperatura_c": temperatura,
+            "orvalho_c": ponto_de_orvalho(temperatura, np.clip(umidade, 20, 99)),
+            "precipitacao_mm": chuva,
+        },
         index=indice,
     )
 
 
-def gerar_inmet(referencia: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
+def gerar_era5(referencia: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
+    passos = indice_era5()
+    # Como no ERA5 real, o acumulado rotulado em t cobre as 3 horas que terminam em t.
+    acumulado = referencia["precipitacao_mm"].rolling(PASSO_ERA5_HORAS).sum().reindex(passos)
+
     df = pd.DataFrame(
         {
-            "fonte": "INMET_EXEMPLO",
-            "estacao": "ESTACAO_FICTICIA",
-            "temperatura_c": referencia["temperatura_c"].round(1),
-            "umidade_relativa_pct": referencia["umidade_relativa_pct"].round(0),
-            # Pluviômetro de báscula: resolução de 0,2 mm.
-            "precipitacao_mm": (referencia["precipitacao_mm"] / 0.2).round() * 0.2,
-        },
-        index=referencia.index,
-    )
-    df["precipitacao_mm"] = df["precipitacao_mm"].round(1)
-
-    n = len(df)
-    for coluna, duracao in LACUNAS_INMET:
-        inicio = int(rng.integers(24, n - 24 - duracao))
-        df.iloc[inicio : inicio + duracao, df.columns.get_loc(coluna)] = np.nan
-
-    sem_registro = rng.choice(np.arange(1, n - 1), size=HORARIOS_SEM_REGISTRO, replace=False)
-    df = df.drop(df.index[sem_registro])
-    return df.reset_index()
-
-
-def gerar_era5(referencia: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
-    """Saída a cada 3 h. A chuva é o acumulado das 3 horas que começam no horário indicado."""
-    temperatura = referencia["temperatura_c"].rolling(3, center=True, min_periods=1).mean()
-    temperatura_3h = temperatura.iloc[::3] - 0.6 + rng.normal(0, 0.4, len(temperatura) // 3)
-
-    soma_3h = referencia["precipitacao_mm"].resample("3h").sum()
-    # Reanálises tendem a espalhar a chuva em eventos mais fracos e frequentes.
-    suavizada = 0.5 * soma_3h + 0.25 * soma_3h.shift(1, fill_value=0) + 0.25 * soma_3h.shift(-1, fill_value=0)
-    precip_m = (0.75 * suavizada / 1000).where(lambda s: s > 1e-5, 0.0)
-
-    return pd.DataFrame(
-        {
-            "data_hora": temperatura_3h.index,
-            "fonte": "ERA5_EXEMPLO",
+            "valid_time": passos,
             "ponto_grade": "GRADE_FICTICIA_A",
-            "temperatura_2m_k": (temperatura_3h + 273.15).round(2).to_numpy(),
-            "precipitacao_total_m": precip_m.round(5).to_numpy(),
+            "t2m": (referencia["temperatura_c"].reindex(passos) + 273.15).round(2).to_numpy(),
+            "d2m": (referencia["orvalho_c"].reindex(passos) + 273.15).round(2).to_numpy(),
+            "tp": (acumulado / 1000).round(5).to_numpy(),
         }
     )
 
+    n = len(df)
+    for coluna, passos_falha in LACUNAS:
+        inicio = int(rng.integers(8, n - 8 - passos_falha))
+        df.iloc[inicio : inicio + passos_falha, df.columns.get_loc(coluna)] = np.nan
 
-def gerar() -> tuple[pd.DataFrame, pd.DataFrame]:
+    sem_registro = []
+    for tamanho in PASSOS_SEM_REGISTRO:
+        inicio = int(rng.integers(8, n - 8 - tamanho))
+        sem_registro.extend(range(inicio, inicio + tamanho))
+    return df.drop(index=sorted(set(sem_registro))).reset_index(drop=True)
+
+
+def gerar() -> pd.DataFrame:
     rng = np.random.default_rng(SEMENTE)
-    referencia = gerar_referencia(rng)
-    return gerar_inmet(referencia, rng), gerar_era5(referencia, rng)
+    return gerar_era5(gerar_referencia(rng), rng)
 
 
 def para_csv(df: pd.DataFrame) -> str:
@@ -120,9 +111,7 @@ def para_csv(df: pd.DataFrame) -> str:
 
 
 def salvar() -> None:
-    inmet, era5 = gerar()
-    ARQUIVO_INMET.parent.mkdir(parents=True, exist_ok=True)
-    ARQUIVO_INMET.write_text(para_csv(inmet), encoding="utf-8")
+    era5 = gerar()
+    ARQUIVO_ERA5.parent.mkdir(parents=True, exist_ok=True)
     ARQUIVO_ERA5.write_text(para_csv(era5), encoding="utf-8")
-    print(f"INMET fictício: {len(inmet)} linhas em {ARQUIVO_INMET}")
     print(f"ERA5 fictício: {len(era5)} linhas em {ARQUIVO_ERA5}")

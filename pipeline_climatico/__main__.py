@@ -34,11 +34,11 @@ def _graficos() -> None:
 
 
 ETAPAS = {
-    "inventariar": (_inventariar, "lista variáveis, tipos e ausências dos CSVs brutos"),
+    "inventariar": (_inventariar, "lista variáveis, unidades e ausências do CSV bruto"),
     "validar": (_validar, "confere colunas, datas duplicadas e ordem temporal"),
     "preparar": (_preparar, "gera data/processed/base_climatica_ficticia_processada.csv"),
     "graficos": (_graficos, "gera os painéis mensais em figures/"),
-    "gerar-dados": (_gerar_dados, "recria os CSVs fictícios de data/raw/ a partir da semente"),
+    "gerar-dados": (_gerar_dados, "recria o CSV fictício de data/raw/ a partir da semente"),
 }
 FLUXO = ["inventariar", "validar", "preparar", "graficos"]
 

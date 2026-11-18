@@ -1,37 +1,37 @@
 # Controle de variáveis
 
-Este controle usa as variáveis fictícias do exemplo para mostrar como documentar fontes climáticas.
+Este controle usa as variáveis fictícias do exemplo para mostrar como documentar uma fonte climática.
 
-## Dados brutos
+## Dado bruto
 
-| Variável | Fonte fictícia | Unidade original | Resolução | Observação |
+| Variável | Unidade | Resolução | Natureza | Observação |
 |---|---|---|---|---|
-| `temperatura_c` | INMET_EXEMPLO | °C | 1 h | Instantânea; contém lacunas. |
-| `umidade_relativa_pct` | INMET_EXEMPLO | % | 1 h | Instantânea; deve ficar entre 0 e 100. |
-| `precipitacao_mm` | INMET_EXEMPLO | mm | 1 h | Acumulado na hora; resolução de 0,2 mm. |
-| `temperatura_2m_k` | ERA5_EXEMPLO | K | 3 h | Instantânea, a 2 m da superfície. |
-| `precipitacao_total_m` | ERA5_EXEMPLO | m | 3 h | Acumulado nas 3 h que começam no horário indicado. |
+| `valid_time` | UTC | 3 h | instante | 01/01/2024 00h a 01/01/2025 00h; 5 passos faltam. |
+| `ponto_grade` | - | - | - | Identificador fictício; vazio indica passo inserido. |
+| `t2m` | K | 3 h | instantânea | Temperatura do ar a 2 m; contém lacunas. |
+| `d2m` | K | 3 h | instantânea | Ponto de orvalho a 2 m; contém lacunas. |
+| `tp` | m | 3 h | acumulada | Total das 3 h que terminam em `valid_time`; contém lacunas. |
 
 ## Base processada
 
-| Coluna | Unidade | Origem | Regra |
-|---|---|---|---|
-| `temperatura_inmet_c` | °C | INMET | Lacunas internas de até 6 h interpoladas no tempo; maiores ficam ausentes. |
-| `umidade_relativa_inmet_pct` | % | INMET | Mesma regra da temperatura; limitada a 0–100. |
-| `precipitacao_inmet_mm` | mm | INMET | Sem preenchimento. |
-| `temperatura_era5_c` | °C | ERA5 | K − 273,15; interpolada de 3 h para 1 h. |
-| `precipitacao_era5_mm` | mm | ERA5 | m × 1000; acumulado de 3 h dividido igualmente entre as 3 horas. |
-| `temperatura_inmet_c_imputado` | booleano | pipeline | Valor interpolado. |
-| `umidade_relativa_inmet_pct_imputado` | booleano | pipeline | Valor interpolado. |
-| `precipitacao_inmet_mm_ausente` | booleano | pipeline | Chuva sem registro na hora. |
-| `registro_inmet_inserido` | booleano | pipeline | Hora criada porque não existia no bruto. |
-| `registro_era5_interpolado` | booleano | pipeline | Hora fora da grade de 3 h do ERA5. |
+| Coluna | Tipo | Regra |
+|---|---|---|
+| `data_hora` | UTC, horária | Grade completa de 2024, 8 784 horas. |
+| `temperatura_c` | °C | `t2m` − 273,15; lacunas de até 6 h interpoladas no passo de 3 h; depois interpolada para 1 h entre passos vizinhos. |
+| `ponto_orvalho_c` | °C | `d2m` − 273,15; mesma regra da temperatura. |
+| `umidade_relativa_pct` | % | Derivada de temperatura e orvalho pela fórmula de Magnus; limitada a 100. |
+| `precipitacao_mm` | mm | `tp` × 1000, dividido igualmente entre as 3 horas que o passo cobre; nunca preenchida. |
+| `hora_interpolada` | booleano | Hora fora da grade de 3 h: temperatura e orvalho interpolados, chuva repartida. |
+| `passo_inserido` | booleano | Horário de 3 h que não existia no arquivo bruto. |
+| `temperatura_c_imputado` | booleano | Valor que só existe por causa do preenchimento de uma lacuna. |
+| `ponto_orvalho_c_imputado` | booleano | Idem, para o ponto de orvalho. |
+| `precipitacao_mm_ausente` | booleano | Hora coberta por um passo sem `tp`. |
 
 ## Campos mínimos recomendados
 
-- Nome técnico da variável.
-- Fonte.
+- Nome técnico da variável e nome padronizado.
+- Fonte e versão.
 - Unidade original e padronizada.
-- Resolução temporal e se a grandeza é instantânea ou acumulada.
+- Resolução temporal e se a grandeza é instantânea ou acumulada, com a convenção de tempo.
 - Regra de conversão.
 - Observações sobre lacunas ou qualidade.

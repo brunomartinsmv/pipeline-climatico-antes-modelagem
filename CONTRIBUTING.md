@@ -26,7 +26,7 @@ A auditoria rejeita binários não liberados, arquivos grandes e notebooks com s
 ## Regras do material
 
 - Escreva em português, com frases curtas, e explique cada regra no ponto em que ela é aplicada.
-- Dados brutos não são editados à mão. Mudanças nos CSVs fictícios passam pelo gerador em `pipeline_climatico/dados_ficticios.py`, seguidas de `python -m pipeline_climatico gerar-dados`.
+- Dados brutos não são editados à mão. Mudanças no CSV fictício passam pelo gerador em `pipeline_climatico/dados_ficticios.py`, seguidas de `python -m pipeline_climatico gerar-dados`.
 - Toda nova transformação deixa uma marcação na base processada e é registrada em `docs/decisoes_metodologicas.md` e `docs/controle_variaveis.md`.
 - Não acrescente dados reais ou de terceiros sem registrar a fonte e as condições de distribuição.
 - Se as figuras mudarem, regenere-as com `python -m pipeline_climatico graficos` e confira o README.

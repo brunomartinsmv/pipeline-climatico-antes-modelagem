@@ -16,12 +16,11 @@ license:
 abstract: >
   Exemplo didático, em português, de preparação rastreável de dados climáticos
   antes da modelagem: inventário, validação, padronização de unidades,
-  tratamento de lacunas e alinhamento de resoluções temporais, com dados
-  fictícios no formato do INMET e do ERA5.
+  tratamento de lacunas e passagem de 3 h para 1 h, com dados fictícios no
+  formato do ERA5.
 keywords:
   - climate data
   - data pipeline
-  - INMET
   - ERA5
   - reproducible research
   - teaching materials

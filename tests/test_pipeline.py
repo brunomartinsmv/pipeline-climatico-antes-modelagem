@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pipeline_climatico import ARQUIVO_ERA5, ARQUIVO_INMET, dados_ficticios, indice_horario_anual, inspecao, preparo
+from pipeline_climatico import ARQUIVO_ERA5, dados_ficticios, indice_horario_anual, inspecao, preparo
 
 
 @pytest.fixture(scope="module")
@@ -10,22 +10,42 @@ def base():
     return preparo.preparar_base()
 
 
-def test_csvs_brutos_coincidem_com_o_gerador():
-    inmet, era5 = dados_ficticios.gerar()
-    assert ARQUIVO_INMET.read_text(encoding="utf-8") == dados_ficticios.para_csv(inmet)
-    assert ARQUIVO_ERA5.read_text(encoding="utf-8") == dados_ficticios.para_csv(era5)
+@pytest.fixture(scope="module")
+def bruto():
+    return pd.read_csv(ARQUIVO_ERA5, parse_dates=["valid_time"]).set_index("valid_time")
 
 
-@pytest.mark.parametrize("arquivo", [ARQUIVO_INMET, ARQUIVO_ERA5])
-def test_estrutura_dos_brutos_e_valida(arquivo):
-    assert inspecao.validar(arquivo)["colunas_extras"] == []
+def test_csv_bruto_coincide_com_o_gerador():
+    assert ARQUIVO_ERA5.read_text(encoding="utf-8") == dados_ficticios.para_csv(dados_ficticios.gerar())
 
 
-def test_validacao_acusa_datas_duplicadas(tmp_path):
-    copia = tmp_path / ARQUIVO_INMET.name
-    linhas = ARQUIVO_INMET.read_text(encoding="utf-8").splitlines()
-    copia.write_text("\n".join(linhas + [linhas[1]]) + "\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="duplicadas"):
+def test_estrutura_do_bruto_e_valida():
+    resultado = inspecao.validar()
+    assert resultado["colunas_extras"] == []
+    assert resultado["passos_sem_registro"] == sum(dados_ficticios.PASSOS_SEM_REGISTRO)
+    assert resultado["orvalho_acima_da_temperatura"] == 0
+
+
+def test_inventario_registra_unidades():
+    tabela = inspecao.inventariar().set_index("variavel")
+    assert tabela.loc["t2m", "unidade"] == "K"
+    assert tabela.loc["tp", "unidade"] == "m"
+
+
+@pytest.mark.parametrize(
+    ("alteracao", "mensagem"),
+    [
+        (lambda linhas: linhas + [linhas[1]], "duplicadas"),
+        (lambda linhas: [linhas[0], linhas[2], linhas[1]] + linhas[3:], "fora de ordem"),
+        (lambda linhas: [linhas[0], "," + linhas[1].split(",", 1)[1]] + linhas[2:], "ilegíveis"),
+        (lambda linhas: [linhas[0].replace(",tp", ",chuva")] + linhas[1:], "faltantes"),
+    ],
+)
+def test_validacao_acusa_problemas(tmp_path, alteracao, mensagem):
+    copia = tmp_path / ARQUIVO_ERA5.name
+    linhas = ARQUIVO_ERA5.read_text(encoding="utf-8").splitlines()
+    copia.write_text("\n".join(alteracao(linhas)) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=mensagem):
         inspecao.validar(copia)
 
 
@@ -34,45 +54,48 @@ def test_base_cobre_todas_as_horas_do_ano(base):
     assert base.columns.tolist() == preparo.COLUNAS_BASE
 
 
-def test_conversoes_de_unidade_do_era5(base):
-    bruto = pd.read_csv(ARQUIVO_ERA5, parse_dates=["data_hora"]).set_index("data_hora")
-    primeira = bruto.index[0]
-    linha = base.set_index("data_hora").loc[primeira]
-    assert linha["temperatura_era5_c"] == pytest.approx(bruto.loc[primeira, "temperatura_2m_k"] - 273.15)
+def test_conversao_de_kelvin_nos_passos_originais(base, bruto):
+    passo = bruto["t2m"].dropna().index[10]
+    assert base.set_index("data_hora").loc[passo, "temperatura_c"] == pytest.approx(bruto.loc[passo, "t2m"] - 273.15)
 
 
-def test_precipitacao_era5_conserva_o_total(base):
-    bruto = pd.read_csv(ARQUIVO_ERA5)
-    assert base["precipitacao_era5_mm"].sum() == pytest.approx(bruto["precipitacao_total_m"].sum() * 1000)
+def test_umidade_relativa_por_magnus():
+    rh = preparo.umidade_relativa(pd.Series([25.0, 20.0]), pd.Series([25.0, 10.0]))
+    assert rh.iloc[0] == pytest.approx(100)
+    assert rh.iloc[1] == pytest.approx(52.5, abs=0.5)
 
 
-def test_precipitacao_inmet_nao_e_inventada(base):
-    bruto = pd.read_csv(ARQUIVO_INMET)
-    ausentes = len(base) - len(bruto) + bruto["precipitacao_mm"].isna().sum()
-    assert base["precipitacao_inmet_mm_ausente"].sum() == ausentes
-    assert base["precipitacao_inmet_mm"].isna().sum() == ausentes
-    assert base["precipitacao_inmet_mm"].sum() == pytest.approx(bruto["precipitacao_mm"].sum())
+def test_precipitacao_conserva_o_total(base, bruto):
+    tp_mm = bruto["tp"] * 1000
+    # O acumulado das 00h de 01/01 cobre 22h e 23h de 2023: só um terço entra no ano.
+    esperado = tp_mm.iloc[1:].sum() + tp_mm.iloc[0] / 3
+    assert base["precipitacao_mm"].sum() == pytest.approx(esperado)
+
+
+def test_precipitacao_ausente_nao_vaza_para_vizinhos(base, bruto):
+    grade = preparo.ler_bruto()
+    passos_sem_chuva = grade.index[grade["tp"].isna()]
+    assert base["precipitacao_mm_ausente"].sum() == 3 * len(passos_sem_chuva)
+    ausentes = base.loc[base["precipitacao_mm_ausente"], "data_hora"]
+    assert set(ausentes.dt.ceil("3h")) == set(passos_sem_chuva)
 
 
 def test_lacuna_longa_de_temperatura_fica_inteira_ausente(base):
-    ausente = base["temperatura_inmet_c"].isna()
-    assert ausente.sum() == 10
-    assert not (ausente & base["temperatura_inmet_c_imputado"]).any()
+    ausente = base["temperatura_c"].isna()
+    # 4 passos ausentes = 4 horários + as 2 horas entre cada par = 3 * 4 + 2 horas
+    assert ausente.sum() == 3 * 4 + 2
+    assert not (ausente & base["temperatura_c_imputado"]).any()
 
 
-def test_preencher_lacunas_curtas_respeita_o_limite():
-    indice = pd.date_range("2024-01-01", periods=12, freq="h")
-    valores = [0, np.nan, np.nan, 3, 4, np.nan, np.nan, np.nan, np.nan, 9, 10, np.nan]
-    tratada, imputado = preparo.preencher_lacunas_curtas(pd.Series(valores, index=indice, dtype=float), max_horas=3)
-    assert tratada.iloc[1:3].tolist() == [1, 2]
-    assert tratada.iloc[5:9].isna().all()
-    assert np.isnan(tratada.iloc[11])
-    assert imputado.tolist() == [False, True, True] + [False] * 9
+def test_preencher_lacunas_curtas_respeita_o_limite_em_horas():
+    indice = pd.date_range("2024-01-01", periods=8, freq="3h")
+    valores = [0, np.nan, 6, 9, np.nan, np.nan, np.nan, 21]
+    tratada, imputado = preparo.preencher_lacunas_curtas(pd.Series(valores, index=indice, dtype=float), 6, 3)
+    assert tratada.iloc[1] == 3
+    assert tratada.iloc[4:7].isna().all()
+    assert imputado.tolist() == [False, True] + [False] * 6
 
 
-def test_flags_de_imputacao_batem_com_os_valores(base):
-    bruto = pd.read_csv(ARQUIVO_INMET, parse_dates=["data_hora"]).set_index("data_hora")
-    bruto = bruto.reindex(indice_horario_anual())
-    tratada = base.set_index("data_hora")
-    esperado = bruto["temperatura_c"].isna() & tratada["temperatura_inmet_c"].notna()
-    assert (tratada["temperatura_inmet_c_imputado"] == esperado).all()
+def test_flags_marcam_horas_fora_da_grade_e_passos_inseridos(base, bruto):
+    assert base["hora_interpolada"].sum() == len(base) * 2 / 3
+    assert base["passo_inserido"].sum() == sum(dados_ficticios.PASSOS_SEM_REGISTRO)

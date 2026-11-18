@@ -1,26 +1,32 @@
 # Dados do exemplo
 
-Os dois arquivos de `raw/` são **inventados**. Eles imitam o formato de fontes meteorológicas públicas, mas não representam nenhuma estação, localidade ou reanálise real. Não use esses valores em análises.
+O arquivo `raw/exemplo_era5_ficticio.csv` é **inventado**. Ele imita uma série do ERA5 extraída para um ponto de grade, mas não representa nenhuma localidade nem a reanálise real. Não use esses valores em análises.
 
-| Arquivo | Imita | Resolução | Período |
+| Coluna | Significado | Unidade | Natureza |
 |---|---|---|---|
-| `raw/exemplo_inmet_ficticio.csv` | estação automática do INMET | 1 hora | 2024 |
-| `raw/exemplo_era5_ficticio.csv` | série do ERA5 em um ponto de grade | 3 horas | 2024 |
+| `valid_time` | tempo de validade | UTC | instante |
+| `ponto_grade` | identificador fictício do ponto | - | - |
+| `t2m` | temperatura do ar a 2 m | K | instantânea |
+| `d2m` | ponto de orvalho a 2 m | K | instantâneo |
+| `tp` | precipitação total | m | acumulada nas 3 h que **terminam** em `valid_time` |
 
-## Como foram gerados
+O passo é de 3 horas, de 01/01/2024 00h a 01/01/2025 00h. O último passo existe porque é ele que contém a chuva das 22h e 23h de 31/12/2024.
 
-O módulo [`pipeline_climatico/dados_ficticios.py`](../pipeline_climatico/dados_ficticios.py) cria uma série horária de referência com ciclo anual, ciclo diário, ruído autocorrelacionado e chuva concentrada no verão e à tarde. Cada fonte deriva dessa série com características próprias:
+## Como foi gerado
 
-- **INMET**: temperatura com uma casa decimal, umidade inteira, chuva com resolução de 0,2 mm, como em um pluviômetro de báscula. O gerador apaga 11 horas inteiras e abre lacunas de 2 a 10 horas em algumas variáveis.
-- **ERA5**: temperatura suavizada, cerca de 0,6 °C mais fria e em kelvin; chuva em metros, acumulada nas 3 horas que **começam** no horário indicado, mais espalhada e menor que a do INMET.
+O módulo [`pipeline_climatico/dados_ficticios.py`](../pipeline_climatico/dados_ficticios.py) cria uma série horária de referência com ciclo anual, ciclo diário, ruído autocorrelacionado e chuva concentrada no verão e à tarde. O arquivo de 3 h é amostrado dessa série:
 
-A semente é fixa. Para recriar os arquivos, execute na raiz:
+- `t2m` e `d2m` são os valores no instante do passo, em kelvin. O ponto de orvalho sai da umidade de referência pela fórmula de Magnus.
+- `tp` é a soma das 3 horas que terminam no passo, em metros, como no ERA5 real.
+- Para exercitar o tratamento de falhas, o gerador remove 5 passos inteiros e apaga 13 valores em blocos de 1 a 4 passos. As falhas simulam arquivos que não baixaram ou vieram corrompidos; o ERA5 real não tem lacunas.
+
+A semente é fixa. Para recriar o arquivo, execute na raiz:
 
 ```bash
 python -m pipeline_climatico gerar-dados
 ```
 
-O teste `test_csvs_brutos_coincidem_com_o_gerador` garante que os CSVs versionados são exatamente os que o gerador produz.
+O teste `test_csv_bruto_coincide_com_o_gerador` garante que o CSV versionado é exatamente o que o gerador produz.
 
 ## Saídas
 
@@ -28,4 +34,4 @@ O teste `test_csvs_brutos_coincidem_com_o_gerador` garante que os CSVs versionad
 
 ## Licença
 
-Os dados fictícios são autorais e distribuídos sob [CC BY 4.0](../LICENSE).
+Os dados fictícios são autorais e distribuídos sob [CC BY 4.0](../LICENSE). ERA5 e Copernicus são citados apenas como referência de formato.

@@ -12,8 +12,8 @@ Exemplo didático de pipeline climático em Python, em português. Não há serv
 
 ## Cuidados
 
-- Os CSVs de `data/raw/` são gerados por `pipeline_climatico/dados_ficticios.py`. Nunca edite os CSVs à mão; altere o gerador e rode `python -m pipeline_climatico gerar-dados`. Um teste compara os dois.
-- Precipitação é grandeza acumulada: não interpole, não troque ausência por zero.
+- O CSV de `data/raw/` é gerado por `pipeline_climatico/dados_ficticios.py`. Nunca edite o CSV à mão; altere o gerador e rode `python -m pipeline_climatico gerar-dados`. Um teste compara os dois.
+- Precipitação (`tp`) é acumulada nas 3 h que terminam em `valid_time`: não interpole, não troque ausência por zero.
 - `figures/*.png` é versionado e aparece no README. Rodar `graficos` regrava os PNGs; descarte com `git checkout -- figures/` se a mudança não fizer parte do trabalho.
 - O notebook é versionado sem saídas.
 - Textos para o leitor ficam em português com acentuação; identificadores de código ficam sem acento.

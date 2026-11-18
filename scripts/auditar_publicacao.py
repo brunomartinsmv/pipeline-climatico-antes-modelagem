@@ -8,9 +8,29 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 BINARIOS_LIBERADOS = {
     "figures/painel_mensal_variaveis_processadas.png",
-    "figures/painel_mensal_falhas_inmet.png",
+    "figures/painel_mensal_falhas_era5.png",
 }
-EXTENSOES_BINARIAS = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".nc", ".grib", ".xlsx", ".zip"}
+EXTENSOES_BINARIAS = {
+    ".pdf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tif",
+    ".tiff",
+    ".nc",
+    ".grib",
+    ".grb",
+    ".grb2",
+    ".hdf",
+    ".h5",
+    ".parquet",
+    ".feather",
+    ".xlsx",
+    ".xls",
+    ".zip",
+    ".tar",
+    ".gz",
+}
 LIMITE_BYTES = 2_000_000
 
 

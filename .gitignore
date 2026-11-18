@@ -27,7 +27,6 @@ data/**
 !data/
 !data/raw/
 !data/processed/
-!data/raw/exemplo_inmet_ficticio.csv
 !data/raw/exemplo_era5_ficticio.csv
 !data/README.md
 !data/**/.gitkeep
@@ -47,6 +46,9 @@ data/**
 
 # Saídas locais (as figuras de figures/*.png são versionadas para o README)
 figures/.matplotlib-cache/
-data/processed/*
-!data/processed/.gitkeep
+
+# Empacotamento
+*.egg-info/
+build/
+dist/
 
