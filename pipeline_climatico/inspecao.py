@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from pipeline_climatico import ARQUIVO_ERA5
+from pipeline_climatico import ARQUIVO_ERA5, indice_era5
 
 COLUNAS_ESPERADAS = {"valid_time", "ponto_grade", "t2m", "d2m", "tp"}
 
@@ -14,7 +14,7 @@ METADADOS = {
     "ponto_grade": ("identificador do ponto", "-", "-"),
     "t2m": ("temperatura do ar a 2 m", "K", "instantânea"),
     "d2m": ("ponto de orvalho a 2 m", "K", "instantâneo"),
-    "tp": ("precipitação total", "m", "acumulada nas 3 h que terminam em valid_time"),
+    "tp": ("precipitação total", "m", "acumulada nas 3 h que terminam em valid_time (neste arquivo)"),
 }
 
 
@@ -34,7 +34,7 @@ def inventariar(caminho: Path = ARQUIVO_ERA5) -> pd.DataFrame:
 
 
 def validar(caminho: Path = ARQUIVO_ERA5) -> dict:
-    """Confere colunas, datas válidas, únicas e ordenadas. Levanta ValueError se algo falhar."""
+    """Confere colunas e datas válidas, únicas, ordenadas e na grade de 3 h. Levanta ValueError se algo falhar."""
     nome = caminho.name
     df = pd.read_csv(caminho)
     faltantes = sorted(COLUNAS_ESPERADAS - set(df.columns))
@@ -49,15 +49,20 @@ def validar(caminho: Path = ARQUIVO_ERA5) -> dict:
     if not tempo.is_monotonic_increasing:
         raise ValueError(f"{nome}: datas fora de ordem")
 
+    # A grade esperada é fixa (passos de 3 h do ano). Um horário fora dela seria descartado no preparo.
+    esperados = indice_era5()
+    fora_da_grade = pd.DatetimeIndex(tempo).difference(esperados)
+    if len(fora_da_grade):
+        raise ValueError(f"{nome}: {len(fora_da_grade)} horários fora da grade de 3 h, como {fora_da_grade[0]}")
+
     passo = tempo.diff().mode().iloc[0]
-    esperados = pd.date_range(tempo.min(), tempo.max(), freq=passo)
     return {
         "arquivo": nome,
         "linhas": len(df),
         "inicio": tempo.min(),
         "fim": tempo.max(),
         "passo_mais_comum": passo,
-        "passos_sem_registro": len(esperados.difference(tempo)),
+        "passos_sem_registro": len(esperados.difference(pd.DatetimeIndex(tempo))),
         "valores_ausentes": int(df[["t2m", "d2m", "tp"]].isna().sum().sum()),
         "orvalho_acima_da_temperatura": int((df["d2m"] > df["t2m"] + 0.05).sum()),
         "colunas_extras": sorted(set(df.columns) - COLUNAS_ESPERADAS),

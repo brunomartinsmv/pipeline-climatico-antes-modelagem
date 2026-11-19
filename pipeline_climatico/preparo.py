@@ -55,7 +55,8 @@ def ler_bruto(caminho: Path = ARQUIVO_ERA5) -> pd.DataFrame:
     """Lê o CSV e o coloca na grade completa de 3 h, marcando os passos que faltavam."""
     bruto = pd.read_csv(caminho, parse_dates=["valid_time"]).set_index("valid_time").sort_index()
     grade = bruto.reindex(indice_era5())
-    grade["passo_inserido"] = grade["ponto_grade"].isna()
+    # Um passo é inserido quando o horário não existe no arquivo, mesmo que alguma coluna venha vazia.
+    grade["passo_inserido"] = ~grade.index.isin(bruto.index)
     return grade
 
 
@@ -81,9 +82,14 @@ def preparar_base(caminho: Path = ARQUIVO_ERA5) -> pd.DataFrame:
     base["umidade_relativa_pct"] = umidade_relativa(base["temperatura_c"], base["ponto_orvalho_c"])
 
     # Acumulado de 3 h (m -> mm) repartido igualmente entre as 3 horas que terminam no passo.
-    # O preenchimento para trás tem limite de 2 h: um passo ausente nunca empresta chuva ao vizinho.
+    # Na base, a chuva fica no horário em que a hora começa: a linha das 23h guarda a chuva das 23h às 00h.
+    # Assim, somar por mês ou por ano pelo rótulo não leva a última hora do período para o seguinte.
+    # O fim da hora (data_hora + 1 h) busca o passo seguinte por no máximo 2 h: um passo ausente nunca
+    # empresta chuva ao vizinho.
     acumulado_mm = grade["tp"] * 1000
-    base["precipitacao_mm"] = acumulado_mm.reindex(ano, method="bfill", limit=PASSO_ERA5_HORAS - 1) / PASSO_ERA5_HORAS
+    fim_da_hora = ano + pd.Timedelta(hours=1)
+    repartida = acumulado_mm.reindex(fim_da_hora, method="bfill", limit=PASSO_ERA5_HORAS - 1) / PASSO_ERA5_HORAS
+    base["precipitacao_mm"] = repartida.to_numpy()
     base["precipitacao_mm_ausente"] = base["precipitacao_mm"].isna()
 
     base["hora_interpolada"] = ano.hour % PASSO_ERA5_HORAS != 0

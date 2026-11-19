@@ -21,7 +21,9 @@ Preparação para a cópia pública.
 
 ### Changed
 - O exemplo passou a usar uma única fonte, o ERA5 fictício, com os nomes curtos do Copernicus (`valid_time`, `t2m`, `d2m`, `tp`) e as falhas antes atribuídas à estação.
-- O acumulado de chuva segue a convenção do ERA5 real: cobre as 3 horas que terminam em `valid_time`. O arquivo inclui o passo de 01/01/2025 00h para fechar o ano.
+- O acumulado de chuva segue a convenção dos produtos de 3 h do ERA5: cobre as 3 horas que terminam em `valid_time`. O arquivo inclui o passo de 01/01/2025 00h para fechar o ano. A documentação explica que, no ERA5 horário, a janela é de 1 hora.
+- Na base processada, a chuva fica no horário em que a hora começa, para que somas por mês e por ano não levem a última hora ao período seguinte.
+- A validação compara os horários com a grade de 3 h de 2024 e acusa os que estão fora dela.
 - Notebook reescrito sobre as funções do pacote, com a demonstração do erro de interpolar acumulados.
 - Documentação revisada com acentuação e com a distinção entre grandezas instantâneas e acumuladas.
 - `graficos.py` não altera mais o backend nem o estilo global do matplotlib ao ser importado.
@@ -31,6 +33,7 @@ Preparação para a cópia pública.
 - Chuva ausente era interpolada e o restante trocado por zero. Agora fica ausente e marcada.
 - Lacunas maiores que 6 h eram preenchidas parcialmente. Agora ficam inteiras como ausentes.
 - As últimas horas do ano eram extrapoladas repetindo o último valor. Agora ficam entre dois passos reais.
+- `passo_inserido` marcava como inserido qualquer horário com `ponto_grade` vazio. Agora marca só os horários ausentes do arquivo.
 
 ### Removed
 - Série fictícia de estação meteorológica.

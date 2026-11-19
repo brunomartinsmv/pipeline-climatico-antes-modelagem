@@ -76,7 +76,8 @@ def gerar_referencia(rng: np.random.Generator) -> pd.DataFrame:
 
 def gerar_era5(referencia: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
     passos = indice_era5()
-    # Como no ERA5 real, o acumulado rotulado em t cobre as 3 horas que terminam em t.
+    # Como nos produtos de 3 h do ERA5, o acumulado rotulado em t cobre as 3 horas que terminam em t.
+    # No ERA5 horário, a janela seria de 1 hora.
     acumulado = referencia["precipitacao_mm"].rolling(PASSO_ERA5_HORAS).sum().reindex(passos)
 
     df = pd.DataFrame(

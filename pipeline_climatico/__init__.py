@@ -24,5 +24,5 @@ def indice_horario_anual(ano: int = ANO_EXEMPLO) -> pd.DatetimeIndex:
 
 
 def indice_era5(ano: int = ANO_EXEMPLO) -> pd.DatetimeIndex:
-    """Passos de 3 h do ano, mais 00h do ano seguinte, que fecha o acumulado das 22h e 23h."""
+    """Passos de 3 h do ano, mais 00h do ano seguinte, que fecha o acumulado das 21h às 00h."""
     return pd.date_range(f"{ano}-01-01 00:00", f"{ano + 1}-01-01 00:00", freq=f"{PASSO_ERA5_HORAS}h", name="valid_time")

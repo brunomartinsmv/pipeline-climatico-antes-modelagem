@@ -32,6 +32,11 @@ def test_inventario_registra_unidades():
     assert tabela.loc["tp", "unidade"] == "m"
 
 
+def _atrasar_uma_hora(linha: str) -> str:
+    data, resto = linha.split(",", 1)
+    return f"{pd.Timestamp(data) + pd.Timedelta(hours=1):%Y-%m-%d %H:%M},{resto}"
+
+
 @pytest.mark.parametrize(
     ("alteracao", "mensagem"),
     [
@@ -39,6 +44,7 @@ def test_inventario_registra_unidades():
         (lambda linhas: [linhas[0], linhas[2], linhas[1]] + linhas[3:], "fora de ordem"),
         (lambda linhas: [linhas[0], "," + linhas[1].split(",", 1)[1]] + linhas[2:], "ilegíveis"),
         (lambda linhas: [linhas[0].replace(",tp", ",chuva")] + linhas[1:], "faltantes"),
+        (lambda linhas: [linhas[0]] + [_atrasar_uma_hora(linha) for linha in linhas[1:]], "fora da grade"),
     ],
 )
 def test_validacao_acusa_problemas(tmp_path, alteracao, mensagem):
@@ -66,10 +72,10 @@ def test_umidade_relativa_por_magnus():
 
 
 def _total_esperado_no_ano(tp_m: pd.Series) -> float:
-    tp_mm = tp_m * 1000
-    # O acumulado das 00h de 01/01/2024 cobre 22h e 23h de 2023: só um terço entra no ano.
-    # O das 00h de 01/01/2025 cobre 22h e 23h de 2024 e 00h de 2025: entram dois terços.
-    return tp_mm.iloc[0] / 3 + tp_mm.iloc[1:-1].sum() + tp_mm.iloc[-1] * 2 / 3
+    # A base guarda a chuva no horário em que a hora começa. As horas de 2024 terminam de
+    # 01h de 01/01/2024 a 00h de 01/01/2025: entram todos os passos, menos o primeiro,
+    # cujo acumulado cobre 21h a 00h de 2023.
+    return tp_m.iloc[1:].sum() * 1000
 
 
 def test_precipitacao_conserva_o_total(base, bruto):
@@ -77,18 +83,32 @@ def test_precipitacao_conserva_o_total(base, bruto):
 
 
 def test_precipitacao_conserva_o_total_com_chuva_nas_bordas(tmp_path, bruto):
-    # No CSV versionado o primeiro e o último acumulados são zero e esconderiam erros de borda.
+    # No CSV versionado os acumulados das bordas são zero e esconderiam erros.
     editado = bruto.copy()
-    editado.iloc[0, editado.columns.get_loc("tp")] = 0.0045
-    editado.iloc[-1, editado.columns.get_loc("tp")] = 0.003
+    editado.loc["2024-01-01 00:00", "tp"] = 0.009  # chuva de 2023: não pode entrar
+    editado.loc["2024-01-01 03:00", "tp"] = 0.0045
+    editado.loc["2025-01-01 00:00", "tp"] = 0.003
     copia = tmp_path / ARQUIVO_ERA5.name
     editado.reset_index().to_csv(copia, index=False, date_format="%Y-%m-%d %H:%M")
 
-    base = preparo.preparar_base(copia)
-    ultimo_dia = base.set_index("data_hora").loc["2024-12-31 22:00":, "precipitacao_mm"]
-    assert ultimo_dia.tolist() == pytest.approx([1.0, 1.0])
-    assert base["precipitacao_mm"].iloc[0] == pytest.approx(1.5)
-    assert base["precipitacao_mm"].sum() == pytest.approx(_total_esperado_no_ano(editado["tp"]))
+    chuva = preparo.preparar_base(copia).set_index("data_hora")["precipitacao_mm"]
+    assert chuva.loc[:"2024-01-01 02:00"].tolist() == pytest.approx([1.5, 1.5, 1.5])
+    assert chuva.loc["2024-12-31 21:00":].tolist() == pytest.approx([1.0, 1.0, 1.0])
+    assert chuva.sum() == pytest.approx(_total_esperado_no_ano(editado["tp"]))
+
+
+def test_precipitacao_fica_no_mes_em_que_cai(tmp_path, bruto):
+    # Chuva das 21h às 00h de 31/01 pertence a janeiro, embora o passo seja 01/02 00h.
+    editado = bruto.copy()
+    editado["tp"] = 0.0
+    editado.loc["2024-02-01 00:00", "tp"] = 0.003
+    copia = tmp_path / ARQUIVO_ERA5.name
+    editado.reset_index().to_csv(copia, index=False, date_format="%Y-%m-%d %H:%M")
+
+    chuva = preparo.preparar_base(copia).set_index("data_hora")["precipitacao_mm"]
+    mensal = chuva.resample("MS").sum()
+    assert mensal.loc["2024-01-01"] == pytest.approx(3.0)
+    assert mensal.loc["2024-02-01"] == pytest.approx(0.0)
 
 
 def test_precipitacao_ausente_nao_vaza_para_vizinhos(base, bruto):
@@ -96,7 +116,7 @@ def test_precipitacao_ausente_nao_vaza_para_vizinhos(base, bruto):
     passos_sem_chuva = grade.index[grade["tp"].isna()]
     assert base["precipitacao_mm_ausente"].sum() == 3 * len(passos_sem_chuva)
     ausentes = base.loc[base["precipitacao_mm_ausente"], "data_hora"]
-    assert set(ausentes.dt.ceil("3h")) == set(passos_sem_chuva)
+    assert set((ausentes + pd.Timedelta(hours=1)).dt.ceil("3h")) == set(passos_sem_chuva)
 
 
 def test_lacuna_longa_de_temperatura_fica_inteira_ausente(base):
@@ -118,3 +138,15 @@ def test_preencher_lacunas_curtas_respeita_o_limite_em_horas():
 def test_flags_marcam_horas_fora_da_grade_e_passos_inseridos(base, bruto):
     assert base["hora_interpolada"].sum() == len(base) * 2 / 3
     assert base["passo_inserido"].sum() == sum(dados_ficticios.PASSOS_SEM_REGISTRO)
+
+
+def test_ponto_grade_vazio_nao_vira_passo_inserido(tmp_path, bruto):
+    editado = bruto.copy()
+    editado["ponto_grade"] = editado["ponto_grade"].astype(object)
+    editado.iloc[10, editado.columns.get_loc("ponto_grade")] = None
+    copia = tmp_path / ARQUIVO_ERA5.name
+    editado.reset_index().to_csv(copia, index=False, date_format="%Y-%m-%d %H:%M")
+
+    grade = preparo.ler_bruto(copia)
+    assert grade["passo_inserido"].sum() == sum(dados_ficticios.PASSOS_SEM_REGISTRO)
+    assert not grade.loc[editado.index[10], "passo_inserido"]

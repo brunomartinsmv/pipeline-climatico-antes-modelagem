@@ -16,6 +16,10 @@ Temperatura e ponto de orvalho são medidos em um instante e podem ser interpola
 
 No ERA5, o acumulado rotulado em um horário cobre o período que **termina** nesse horário. Outras fontes rotulam pelo início. Errar a convenção desloca toda a chuva no tempo, e a primeira e a última hora do período passam a depender de dados fora dele.
 
+O tamanho da janela também varia dentro de uma mesma fonte. No ERA5 horário, `tp` cobre 1 hora; nos produtos de 3 h, como os membros do ensemble, cobre 3 horas. Confira as duas coisas na documentação do produto baixado.
+
+Ao somar por dia ou por mês, rotule cada valor pelo período a que ele pertence. Se a chuva das 23h às 00h ficar no rótulo das 00h, ela vai parar no dia seguinte, e a última hora de cada mês, no mês seguinte.
+
 ## Trate lacunas de forma explícita
 
 Valores ausentes devem ser identificados e documentados. Preenchimentos automáticos sem registro dificultam a rastreabilidade. Um passo sem registro de chuva não é um passo seco.
