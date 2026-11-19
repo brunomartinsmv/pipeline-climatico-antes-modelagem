@@ -1,0 +1,6 @@
+# Dependências para executar o pipeline e o notebook.
+# Para desenvolvimento (testes e lint), prefira: python -m pip install -e ".[dev,notebook]"
+pandas>=2.2,<4
+numpy>=1.26,<3
+matplotlib>=3.8,<4
+jupyter
